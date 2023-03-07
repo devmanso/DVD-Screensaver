@@ -16,11 +16,13 @@
 #include <lua/lua.h>
 #include <lua/lualib.h>
 
-
+// defualt properties, but these can be changed in a Lua script
 int WINDOW_WIDTH = 640;
 int WINDOW_HEIGHT = 480;
 int SPEED = 100;
 char title[] = "DVD ScreenSaver";
+char file_path[] = "art/dvd_screensaver.png";
+
 
 int delay(Uint32 ms) {
     SDL_Delay(ms);
@@ -29,6 +31,12 @@ int delay(Uint32 ms) {
 
 int setSpeed(int speed) {
     SPEED = speed;
+    return 0;
+}
+
+int setImagePath(char new_file_path[]) {
+    // this is unsafe code
+    strcpy(file_path, new_file_path);
     return 0;
 }
 
@@ -49,6 +57,12 @@ int setTitle(char title_name[]) {
 }
 
 // Lua functions, which are basically Lua function wrappers for C functions
+
+static int lua_setImagePath(lua_State *L) {
+    const char *new_image_path = luaL_checkstring(L, 1);
+    setImagePath(new_image_path);
+    return 0;
+}
 
 static int lua_setSpeed(lua_State *L) {
     int lua_speed = luaL_checkinteger(L, 1);
@@ -80,6 +94,8 @@ int main() {
     lua_setglobal(L, "wait");
     lua_pushcfunction(L, lua_setTitle);
     lua_setglobal(L, "settitle");
+    lua_pushcfunction(L, lua_setImagePath);
+    lua_setglobal(L, "setimagepath");
 
     // load Lua file, be sure to load the file AFTER pushing the C functions to lua
     luaL_dofile(L, "config.lua");
@@ -127,7 +143,7 @@ int main() {
     }
 
     // Load image to memory
-    SDL_Surface* dvdSurface = IMG_Load("art/dvd_screensaver.png");
+    SDL_Surface* dvdSurface = IMG_Load(file_path);
     if (!dvdSurface) {
         printf("surface (images) could not be loaded into memory");
         SDL_DestroyRenderer(renderer);
@@ -207,10 +223,12 @@ int main() {
     }
     
     //clean up before exiting
+    printf("CLEANING UP \n");
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
+    printf("CLOSING LUA STATE \n");
     lua_close(L);
     return 0;
 }
